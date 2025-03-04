@@ -1,21 +1,21 @@
-const { Pool } = require('pg');
-require('dotenv').config();
+require("dotenv").config();
+const { Pool } = require("pg");
+const { createClient } = require("@supabase/supabase-js");
 
+// Validar variables de entorno
+if (!process.env.DATABASE_URL || !process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
+  throw new Error("❌ ERROR: Variables de entorno faltantes. Verifica el archivo .env.");
+}
+
+// 🔹 Configuración de PostgreSQL
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false } // Necesario para Supabase
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }, // Necesario para conexiones seguras
 });
 
-module.exports = pool;
+// 🔹 Conexión a Supabase
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
+console.log("✅ Conexión a PostgreSQL y Supabase establecida correctamente.");
 
-dotenv.config();
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-export default supabase;
+module.exports = { pool, supabase };

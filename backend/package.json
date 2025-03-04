@@ -1,20 +1,25 @@
 {
-  "name": "backend",
+  "name": "sorteos-ea",
   "version": "1.0.0",
+  "description": "Backend para la plataforma de sorteos",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "@supabase/supabase-js": "^2.49.1",
+
+  "dependencies":  {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "pg": "^8.13.3",
-    "prisma": "^6.4.1"
+    "pg": "^8.11.3",
+    "@supabase/supabase-js": "^2.39.4"
+  },
+
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=16"
   }
 }
