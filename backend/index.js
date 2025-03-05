@@ -3,97 +3,39 @@ const express = require("express");
 const cors = require("cors");
 const { pool, supabase } = require("./db");
 const mercadopago = require("mercadopago");
+const interRoutes = require("./inter"); // Importa las rutas desde inter.js
+const { sendEmail } = require("./email"); // Importa la función para enviar correos
+
 const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Configuraciones
 app.use(cors());
 app.use(express.json());
 
-const PRECIO_BOLETO = 10;
-mercadopago.configure({ access_token: process.env.MP_ACCESS_TOKEN });
- 
+// Configuración de Mercado Pago
+mercadopago.configure({
+  access_token: process.env.MP_ACCESS_TOKEN,
+});
+
+// Rutas
+app.use("/api", interRoutes); // Usa las rutas definidas en inter.js bajo el prefijo /api
+
+// Ruta de prueba para verificar que el servidor está activo
 app.get("/", (req, res) => res.send("✅ API funcionando correctamente"));
- 
-const generarNumeroBoleto = async () => {
-  while (true) {
-    const numeroAleatorio = Math.floor(100000 + Math.random() * 900000);
-    const { data, error } = await supabase.from("boletos").select("numero").eq("numero", numeroAleatorio);
-    if (error) throw new Error("Error al generar número de boleto.");
-    if (!data || data.length === 0) return numeroAleatorio;
-  }
-};
- 
-app.post("/comprar-boletos", async (req, res) => {
-  const { comprador_nombre, comprador_email, comprador_telefono, cantidad, metodo_pago } = req.body;
 
-  if (!comprador_nombre || !comprador_email || !comprador_telefono || !cantidad || cantidad <= 0 || !metodo_pago) {
-    return res.status(400).json({ error: "⚠️ Todos los campos son obligatorios." });
-  }
-
+// Ruta de prueba para enviar correos con Amazon SES
+app.get("/send-test-email", async (req, res) => {
   try {
-    const monto = cantidad * PRECIO_BOLETO;
-    const { data: pago, error: errorPago } = await supabase.from("pagos").insert([{ 
-      comprador_nombre, 
-      comprador_email, 
-      comprador_telefono, 
-      cantidad_boletos: cantidad, 
-      metodo_pago, 
-      monto, 
-      estado_pago: "pendiente"
-    }]).select("id").single();
-    if (errorPago) throw errorPago;
-    
-    const boletos = [];
-    for (let i = 0; i < cantidad; i++) {
-      const numeroBoleto = await generarNumeroBoleto();
-      boletos.push({
-        numero: numeroBoleto,
-        comprador_nombre,
-        comprador_email,
-        comprador_telefono,
-        pago_id: pago.id
-      });
-    }
-
-
-    const { error: errorBoletos } = await supabase.from("boletos").insert(boletos);
-    if (errorBoletos) throw errorBoletos;
-    
-    res.json({ mensaje: "🎉 Boletos comprados con éxito", boletos });
+    await sendEmail("destinatario@correo.com", "Prueba SES", "<h1>¡Correo enviado con éxito!</h1>");
+    res.send("Correo enviado correctamente.");
   } catch (error) {
-
-    res.status(500).json({ error: "❌ Error interno", detalles: error.message });
+    res.status(500).send("Error enviando correo.");
   }
 });
 
-app.post("/crear-preferencia", async (req, res) => {
-  const { cantidad, comprador_email } = req.body;
-  if (!cantidad || cantidad <= 0 || !comprador_email) {
-    return res.status(400).json({ error: "⚠️ Todos los campos son obligatorios." });
-  }
-
-  try {
-    const preference = {
-      items: [{ title: "Boleto de Rifa", unit_price: PRECIO_BOLETO, quantity: cantidad }],
-      payer: { email: comprador_email },
-      back_urls: { success: "http://localhost:3000/exito", failure: "http://localhost:3000/error" },
-      auto_return: "approved"
-    };
-    const response = await mercadopago.preferences.create(preference);
-    res.json({ id: response.body.id });
-  } catch (error) {
-    res.status(500).json({ error: "❌ Error al crear preferencia de pago", detalles: error.message });
-  }
+// Inicia el servidor
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });
 
-app.post("/webhook", async (req, res) => {
-  const payment = req.body;
-  if (payment.type === "payment") {
-    const paymentData = await mercadopago.payment.findById(payment.data.id);
-    const estado = paymentData.body.status;
-    const pagoId = paymentData.body.external_reference;
-    await supabase.from("pagos").update({ estado_pago: estado }).eq("id", pagoId);
-  }
-  res.sendStatus(200);
-});
- 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Servidor en http://localhost:${PORT}`));
